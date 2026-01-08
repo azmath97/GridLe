@@ -1,0 +1,5 @@
+{
+  "name": "GuessTheGP",
+  "description": "A Wordle-inspired F1 trivia game where you identify a specific race from 2000-2025 using 6 progressively revealing clues. Tests deep knowledge of on-track events, strategy, and off-track controversies.",
+  "requestFramePermissions": []
+}
