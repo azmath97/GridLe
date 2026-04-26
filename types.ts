@@ -34,6 +34,7 @@ export interface Stats {
   guessDistribution: number[];
   currentStreak: number;
   maxStreak: number;
+  lastWonDate?: string;
 }
 
 export interface GameState {

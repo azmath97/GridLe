@@ -1,5 +1,5 @@
 
-export const YEARS = Array.from({ length: 26 }, (_, i) => 2000 + i);
+export const YEARS = Array.from({ length: 27 }, (_, i) => 2000 + i);
 
 export const GP_NAMES = [
   "Abu Dhabi Grand Prix",

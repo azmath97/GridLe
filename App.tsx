@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
+import confetti from 'canvas-confetti';
 import { generateRace } from './geminiService';
 import { Race, Guess, GameState, FeedbackColor, Stats } from './types';
 import { GuessInput } from './components/GuessInput';
@@ -48,18 +49,49 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const savedStats = localStorage.getItem('guessthegp_stats');
-    if (savedStats) setStats(JSON.parse(savedStats));
+    if (savedStats) {
+      let parsedStats: Stats = JSON.parse(savedStats);
+      
+      // Streak Persistence Logic
+      const today = new Date();
+      today.setUTCHours(0, 0, 0, 0);
+      
+      if (parsedStats.lastWonDate) {
+        const lastWin = new Date(parsedStats.lastWonDate);
+        lastWin.setUTCHours(0, 0, 0, 0);
+        
+        const diffDays = Math.floor((today.getTime() - lastWin.getTime()) / (1000 * 60 * 60 * 24));
+        
+        // If more than 1 day has passed since last win, and they haven't won yet today, reset streak
+        if (diffDays > 1) {
+          parsedStats.currentStreak = 0;
+          localStorage.setItem('guessthegp_stats', JSON.stringify(parsedStats));
+        }
+      }
+      
+      setStats(parsedStats);
+    }
   }, []);
 
   const updateStats = (won: boolean, attempts: number) => {
+    const today = new Date().toISOString().split('T')[0];
     const newStats = { ...stats };
     newStats.gamesPlayed += 1;
+
     if (won) {
       newStats.gamesWon += 1;
       newStats.guessDistribution[attempts - 1] += 1;
-      newStats.currentStreak += 1;
+      
+      // Only increment streak if this is a new win for a new day
+      if (newStats.lastWonDate !== today) {
+        newStats.currentStreak += 1;
+      }
+      
+      newStats.lastWonDate = today;
       newStats.maxStreak = Math.max(newStats.maxStreak, newStats.currentStreak);
     } else {
+      // In Wordle, losing doesn't necessarily reset the streak if you didn't miss the day,
+      // but usually many clones reset it on loss. I'll keep it as reset on loss for "retired" feel.
       newStats.currentStreak = 0;
     }
     setStats(newStats);
@@ -133,6 +165,34 @@ const App: React.FC = () => {
     if (feedback === FeedbackColor.GREEN) {
       newStatus = 'won';
       updateStats(true, newGuesses.length);
+      
+      // Champagne & Confetti effects
+      const scalar = 2;
+      const champagne = confetti.shapeFromText({ text: '🍾', scalar });
+      
+      confetti({
+        particleCount: 150,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#ef4444', '#ffffff', '#fbbf24']
+      });
+
+      confetti({
+        particleCount: 40,
+        angle: 60,
+        spread: 55,
+        origin: { x: 0 },
+        shapes: [champagne]
+      });
+
+      confetti({
+        particleCount: 40,
+        angle: 120,
+        spread: 55,
+        origin: { x: 1 },
+        shapes: [champagne]
+      });
+
       setTimeout(() => setShowStats(true), 1200);
     } else if (newGuesses.length >= 6) {
       newStatus = 'lost';
@@ -161,7 +221,17 @@ const App: React.FC = () => {
 
   const shareResults = () => {
     const attempts = state.status === 'won' ? state.guesses.length : 'X';
-    const text = `GuessTheGP ${state.mode === 'daily' ? 'Daily' : 'Practice'} ${attempts}/6\n\n${getEmojiGrid()}\n\nhttps://guessthegp.app`;
+    let podium = '';
+    
+    if (state.status === 'won') {
+      const pos = (state.guesses.length - 1) * 2;
+      const spaces = ' '.repeat(pos);
+      podium = `${spaces}🏅\n1 2 3 4 5 6`;
+    } else {
+      podium = `1 2 3 4 5 6 (DNF)`;
+    }
+
+    const text = `GridLe ${state.mode === 'daily' ? 'Daily' : 'Practice'} ${attempts}/6\n\n${podium}\n\n${getEmojiGrid()}\n\nhttps://gridle.app`;
     
     if (navigator.share) {
       navigator.share({ text: text }).catch(() => {
@@ -195,12 +265,16 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#050505] pb-32 px-4 overflow-x-hidden selection:bg-red-900 selection:text-white flex flex-col">
+    <div className="min-h-screen bg-[#050505] pb-48 px-4 overflow-x-hidden selection:bg-red-900 selection:text-white flex flex-col">
       {/* Header: Simplified without attribution link */}
       <header className="max-w-xl mx-auto w-full py-4 flex items-center justify-between border-b border-zinc-900 mb-8 sticky top-0 bg-[#050505]/95 backdrop-blur-md z-40">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 bg-red-600 rounded flex items-center justify-center font-black italic tracking-tighter text-base">GP</div>
-          <h1 className="text-lg font-black uppercase tracking-tighter">GuessTheGP</h1>
+          <img 
+            src="https://cdn-icons-png.flaticon.com/512/5784/5784725.png" 
+            alt="GridLe Logo" 
+            className="w-8 h-8 object-contain"
+          />
+          <h1 className="text-lg font-black uppercase tracking-tighter">GridLe</h1>
         </div>
 
         <div className="flex gap-1.5 items-center">
@@ -231,7 +305,7 @@ const App: React.FC = () => {
                     <div className="flex-1">
                       {isUnlocked ? (
                         <>
-                          <span className={`text-[9px] font-black uppercase tracking-widest mb-2 block ${idx % 2 === 0 ? 'text-red-500' : 'text-purple-500'}`}>{clue?.category}</span>
+                          <span className={`text-[9px] font-black uppercase tracking-widest mb-2 block ${idx % 2 === 0 ? 'text-red-500' : 'text-purple-500'}`}>Hint {idx + 1}</span>
                           <p className="text-zinc-100 text-[15px] leading-relaxed font-medium">{clue?.text}</p>
                         </>
                       ) : <div className="h-4 w-1/3 bg-zinc-900 rounded-full animate-pulse" />}
@@ -272,10 +346,17 @@ const App: React.FC = () => {
             
             <div className="space-y-2">
               <h3 className={`text-4xl font-black uppercase tracking-tighter ${state.status === 'won' ? 'text-green-500' : 'text-red-600'}`}>
-                {state.status === 'won' ? 'Perfect Lap' : 'Retired'}
+                {state.status === 'won' ? (
+                  state.guesses.length === 1 ? 'WOWZERS...' :
+                  state.guesses.length === 2 ? 'Incredible!' :
+                  state.guesses.length === 3 ? 'Great job!' :
+                  state.guesses.length === 4 ? 'Well done!' :
+                  state.guesses.length === 5 ? 'pheww' :
+                  state.guesses.length === 6 ? 'clutched it' : 'Winner!'
+                ) : 'Retired'}
               </h3>
               <p className="text-zinc-500 text-sm font-bold uppercase tracking-widest">
-                Identity: <span className="text-white font-black">{state.currentRace?.year} {state.currentRace?.gpName}</span>
+                Answer: <span className="text-white font-black">{state.currentRace?.year} {state.currentRace?.gpName}</span>
               </p>
             </div>
 
@@ -380,14 +461,6 @@ const App: React.FC = () => {
         <div className="space-y-8">
           <p className="text-[10px] text-zinc-700 uppercase tracking-widest text-center font-black">Request Field Intel</p>
           <div className="space-y-4">
-             <button 
-              disabled={state.hintsRevealed.country}
-              onClick={() => toggleHint('country')}
-              className="w-full flex items-center justify-between p-5 bg-black border border-zinc-900 rounded-2xl hover:border-red-600/50 transition-all group disabled:opacity-30 disabled:grayscale"
-             >
-               <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest group-hover:text-red-500">Venue Region</span>
-               <span className="text-sm font-black text-white">{state.hintsRevealed.country ? state.currentRace?.country : 'Unlock'}</span>
-             </button>
              <button 
               disabled={state.hintsRevealed.winner}
               onClick={() => toggleHint('winner')}

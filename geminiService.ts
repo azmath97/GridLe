@@ -32,7 +32,7 @@ const RACE_SCHEMA = {
 };
 
 export async function generateRace(targetYear?: number): Promise<Race> {
-  const prompt = `Generate a Formula 1 race dossier for a specific GP between 2000 and 2025.
+  const prompt = `Generate a Formula 1 race dossier for a specific GP between 2000 and 2026.
   ${targetYear ? `Focus on the year ${targetYear}.` : 'Select a random significant race.'}
   
   CRITICAL RULES:
